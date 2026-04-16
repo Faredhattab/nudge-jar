@@ -6,6 +6,14 @@ from flask import Flask, jsonify, render_template, request
 nudges = []
 
 
+def _serialize_nudges():
+    return {"nudges": nudges}
+
+
+def _clean_nudge_text(payload):
+    return str(payload.get("text", "")).strip()
+
+
 def create_app():
     app = Flask(__name__)
 
@@ -15,18 +23,18 @@ def create_app():
 
     @app.get("/api/nudges")
     def get_nudges():
-        return jsonify({"nudges": nudges})
+        return jsonify(_serialize_nudges())
 
     @app.post("/api/nudges")
     def add_nudge():
         data = request.get_json(silent=True) or {}
-        text = str(data.get("text", "")).strip()
+        text = _clean_nudge_text(data)
 
         if not text:
             return jsonify({"error": "Nudge cannot be empty."}), 400
 
         nudges.append(text)
-        return jsonify({"ok": True, "nudges": nudges}), 201
+        return jsonify({"ok": True, **_serialize_nudges()}), 201
 
     @app.get("/api/nudges/random")
     def get_random_nudge():

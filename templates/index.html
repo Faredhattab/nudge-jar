@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nudge Jar</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <main class="shell">
+        <section class="card">
+            <p class="eyebrow">Tiny momentum machine</p>
+            <h1>Nudge Jar</h1>
+            <p class="intro">
+                Save short nudges to your future self and pull one at random when you need a push.
+            </p>
+
+            <form id="nudge-form" class="nudge-form">
+                <label class="sr-only" for="nudge-input">New nudge</label>
+                <input id="nudge-input" name="text" type="text" maxlength="140" placeholder="Send the email" required>
+                <button type="submit">Save Nudge</button>
+            </form>
+
+            <div class="actions">
+                <button id="pick-button" type="button" class="secondary">Pick One</button>
+            </div>
+
+            <p id="feedback" class="feedback" aria-live="polite"></p>
+
+            <section class="result-panel">
+                <h2>Random pick</h2>
+                <p id="random-nudge" class="random-nudge">Nothing picked yet.</p>
+            </section>
+
+            <section class="list-panel">
+                <div class="list-header">
+                    <h2>Saved nudges</h2>
+                    <span id="nudge-count" class="count">0</span>
+                </div>
+                <ul id="nudge-list" class="nudge-list"></ul>
+            </section>
+        </section>
+    </main>
+
+    <script>
+        const nudgeForm = document.getElementById("nudge-form");
+        const nudgeInput = document.getElementById("nudge-input");
+        const nudgeList = document.getElementById("nudge-list");
+        const nudgeCount = document.getElementById("nudge-count");
+        const pickButton = document.getElementById("pick-button");
+        const feedback = document.getElementById("feedback");
+        const randomNudge = document.getElementById("random-nudge");
+
+        function setFeedback(message, isError = false) {
+            feedback.textContent = message;
+            feedback.classList.toggle("error", isError);
+        }
+
+        function renderNudges(nudges) {
+            nudgeList.innerHTML = "";
+            nudgeCount.textContent = String(nudges.length);
+
+            if (!nudges.length) {
+                const item = document.createElement("li");
+                item.className = "empty";
+                item.textContent = "No nudges yet. Add one to fill the jar.";
+                nudgeList.appendChild(item);
+                return;
+            }
+
+            nudges.forEach((nudge) => {
+                const item = document.createElement("li");
+                item.textContent = nudge;
+                nudgeList.appendChild(item);
+            });
+        }
+
+        async function loadNudges() {
+            const response = await fetch("/api/nudges");
+            const payload = await response.json();
+            renderNudges(payload.nudges || []);
+        }
+
+        nudgeForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            const response = await fetch("/api/nudges", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: nudgeInput.value }),
+            });
+
+            const payload = await response.json();
+
+            if (!response.ok) {
+                setFeedback(payload.error || "Unable to save nudge.", true);
+                return;
+            }
+
+            renderNudges(payload.nudges || []);
+            nudgeInput.value = "";
+            randomNudge.textContent = "Nothing picked yet.";
+            setFeedback("Nudge saved.");
+        });
+
+        pickButton.addEventListener("click", async () => {
+            const response = await fetch("/api/nudges/random");
+            const payload = await response.json();
+
+            if (!response.ok) {
+                randomNudge.textContent = "Nothing picked yet.";
+                setFeedback(payload.error || "Unable to pick a nudge.", true);
+                return;
+            }
+
+            randomNudge.textContent = payload.nudge;
+            setFeedback("Here is your nudge.");
+        });
+
+        loadNudges().catch(() => {
+            setFeedback("Unable to load nudges.", true);
+        });
+    </script>
+</body>
+</html>
